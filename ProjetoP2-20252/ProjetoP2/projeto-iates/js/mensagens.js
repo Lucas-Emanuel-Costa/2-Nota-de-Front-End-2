@@ -1,14 +1,19 @@
 $(document).ready(function () {
 
-    // --- Carrega mensagens da API + LocalStorage ---
-    function carregarMensagens() {
-        let dadosAPI = obterMensagens(); 
-        let dadosLocal = JSON.parse(localStorage.getItem("mensagens")) || [];
+    // --- Carrega mensagens só do localStorage ---
+    function carregarMensagensLocal() {
+        return JSON.parse(localStorage.getItem("mensagens")) || [];
+    }
 
-        // Junta e evita duplicações (baseado no timestamp)
+    // --- Carrega mensagens da API + mescla com LocalStorage ---
+    function carregarMensagens() {
+        let dadosAPI = obterMensagens() || []; // garantir array
+        let dadosLocal = carregarMensagensLocal();
+
+        // Junta e evita duplicações (baseado no id)
         dadosAPI.forEach(msg => {
-            if (!dadosLocal.some(m => m.id === msg.id)) {
-                msg.visualizada = false; 
+            if (!dadosLocal.some(m => String(m.id) === String(msg.id))) {
+                msg.visualizada = msg.visualizada ?? false; 
                 dadosLocal.push(msg);
             }
         });
@@ -24,7 +29,9 @@ $(document).ready(function () {
 
     // --- Renderizar mensagens na tela ---
     function atualizarLista() {
-        let lista = carregarMensagens();
+        // Se quiser buscar da API só no início, use carregarMensagensLocal()
+        // Se quiser sempre sincronizar com a API, use carregarMensagens()
+        let lista = carregarMensagensLocal();
 
         if (lista.length === 0) {
             $("#mensagens").html("<p>Nenhuma mensagem encontrada.</p>");
@@ -56,11 +63,14 @@ $(document).ready(function () {
     $(document).on("click", ".botao-visualizar", function () {
         if (!confirm("Marcar mensagem como visualizada?")) return;
 
-        let id = $(this).data("id");
-        let lista = carregarMensagens();
+        // Garante que estamos comparando string com string
+        let id = String($(this).data("id"));
+        let lista = carregarMensagensLocal();
 
         lista = lista.map(msg => {
-            if (msg.id === id) msg.visualizada = true;
+            if (String(msg.id) === id) {
+                msg.visualizada = true;
+            }
             return msg;
         });
 
@@ -72,15 +82,16 @@ $(document).ready(function () {
     $(document).on("click", ".botao-excluir", function () {
         if (!confirm("Tem certeza que deseja excluir esta mensagem?")) return;
 
-        let id = $(this).data("id");
-        let lista = carregarMensagens();
+        let id = String($(this).data("id"));
+        let lista = carregarMensagensLocal();
 
-        lista = lista.filter(msg => msg.id !== id);
+        lista = lista.filter(msg => String(msg.id) !== id);
 
         salvarMensagens(lista);
         atualizarLista();
     });
 
-    // Inicializa
+    // Inicializa: aqui sim sincroniza com a API na primeira vez
+    carregarMensagens();
     atualizarLista();
 });
